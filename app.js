@@ -4,38 +4,50 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const { connectToMongoDb } = require("./config/db");
+require("dotenv").config();
+const http = require('http');
 
+// Import des routeurs
+var indexRouter = require('./routes/indexRouter');
+var usersRouter = require('./routes/usersRouter');
+var osRouter = require('./routes/osRouter');
+var influencerRouter = require('./routes/influencerRouter'); // Nouveau routeur
+const reviewRoutes = require('./routes/reviewRoutes');
+const itineraryRoutes = require('./routes/itineraryRoutes');
+const eventRoutes = require('./routes/eventRoutes');
 var app = express();
 
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
-
+// Middlewares
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', indexRouter);
+// Routes
+app.use("/", indexRouter);
 app.use('/users', usersRouter);
+app.use("/os", osRouter);
+app.use("/influencers", influencerRouter); // Nouvelle route pour les influenceurs
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/itineraries', itineraryRoutes);
+app.use('/api/events', eventRoutes);
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
+// Gestion des erreurs
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
+app.use(function (err, req, res, next) {
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
+  res.status(err.status || 500).json({ error: err.message });
 });
 
-module.exports = app;
+// Lancement du serveur
+const server = http.createServer(app);
+server.listen(process.env.PORT || 5000, () => {
+  connectToMongoDb();
+  console.log(`Server running on port ${process.env.PORT || 5000}`);
+});
