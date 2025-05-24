@@ -52,39 +52,58 @@ exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    // 1. Vérification des champs requis
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email et mot de passe requis"
+      });
     }
 
+    // 2. Récupération de l'utilisateur AVEC le mot de passe haché
+    const user = await User.findOne({ email }).select('+password');
+    
+    if (!user || !user.password) {  // Vérification supplémentaire
+      return res.status(401).json({
+        success: false,
+        message: "Identifiants invalides"
+      });
+    }
+
+    // 3. Comparaison sécurisée
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({
+        success: false,
+        message: "Identifiants invalides"
+      });
     }
 
+    // 4. Génération du token (si JWT_SECRET est bien configuré)
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
+    // 5. Réponse sans le mot de passe
+    const userWithoutPassword = user.toObject();
+    delete userWithoutPassword.password;
+
     res.status(200).json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        age: user.age,
-        user_image: user.user_image,
-      },
+      user: userWithoutPassword
     });
+
   } catch (error) {
-    next(error);
+    console.error("Erreur login:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur"
+    });
   }
 };
-
 // @desc    Get current user profile
 // @route   GET /api/users/me
 // @access  Private
@@ -204,6 +223,53 @@ exports.toggleBan = async (req, res, next) => {
       message: `User ${user.ban ? "banned" : "unbanned"} successfully`,
       user,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+// @desc    Update influencer social media
+// @route   PUT /api/users/me/social
+// @access  Private/Influencer
+exports.updateSocialMedia = async (req, res, next) => {
+  try {
+    if (req.user.role !== 'influenceur') {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Accès réservé aux influenceurs" 
+      });
+    }
+
+    const { instagram, tiktok, youtube } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { 
+        social_media: { instagram, tiktok, youtube },
+        $inc: { followers_count: req.body.followers_increase || 0 }
+      },
+      { new: true }
+    ).select('-password');
+
+    res.status(200).json({ success: true, user: updatedUser });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get top influencers
+// @route   GET /api/users/top-influencers
+// @access  Public
+exports.getTopInfluencers = async (req, res, next) => {
+  try {
+    const influencers = await User.find({ 
+      role: 'influenceur',
+      ban: false 
+    })
+    .sort('-followers_count')
+    .limit(10)
+    .select('username user_image followers_count social_media');
+
+    res.status(200).json({ success: true, influencers });
   } catch (error) {
     next(error);
   }

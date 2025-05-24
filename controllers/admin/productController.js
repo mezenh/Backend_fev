@@ -1,9 +1,8 @@
 const Product = require('../../models/productSchema');
 
-// [ADMIN] Créer un produit artisanal
+// [ADMIN] Créer un produit
 exports.createProduct = async (req, res) => {
   try {
-    // Validation des données
     if (!req.body.name || !req.body.price) {
       return res.status(400).json({
         success: false,
@@ -26,7 +25,7 @@ exports.createProduct = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ // 500 au lieu de 400 pour les erreurs serveur
+    res.status(500).json({
       success: false,
       error: err.message
     });
@@ -80,6 +79,48 @@ exports.deleteProduct = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {}
+    });
+
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+};
+
+// [PUBLIC/ADMIN] Récupérer tous les produits
+exports.getAllProducts = async (req, res) => {
+  try {
+    const products = await Product.find();
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+};
+
+// [PUBLIC/ADMIN] Récupérer un produit spécifique
+exports.getProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: "Produit non trouvé"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: product
     });
 
   } catch (err) {
