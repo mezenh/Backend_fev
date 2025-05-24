@@ -24,3 +24,5 @@ exports.admin = (req, res, next) => {
   }
   next();
 };
+exports.protect = (req, res, next) => { /*...*/ };
+exports.isAdmin = (req, res, next) => { /*...*/ };
